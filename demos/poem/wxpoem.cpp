@@ -17,11 +17,11 @@
 #include "wx/wxprec.h"
 
 #ifdef __BORLANDC__
-#pragma hdrstop
+    #pragma hdrstop
 #endif
 
 #ifndef WX_PRECOMP
-#include "wx/wx.h"
+    #include "wx/wx.h"
 #endif
 
 #include "wxpoem.h"
@@ -57,7 +57,7 @@ static long     last_find = -1;                 // Point in file of last found
 static bool     search_ok = false;              // Search was successful
 static bool     same_search = false;            // Searching on same string
 
-static long     poem_index[600];                     // Index of poem starts
+static long     poem_index[600];                // Index of poem starts
 static long     nitems = 0;                     // Number of poems
 static int      char_height = DEFAULT_CHAR_HEIGHT; // Actual height
 static int      index_ptr = -1;                 // Pointer into index
@@ -66,8 +66,8 @@ static int      XPos;                           // Startup X position
 static int      YPos;                           // Startup Y position
 static int      pointSize = 12;                 // Font size
 
-static const wxChar   *index_filename = NULL;            // Index filename
-static const wxChar   *data_filename = NULL;             // Data filename
+static const wxChar *index_filename = NULL;     // Index filename
+static const wxChar *data_filename = NULL;      // Data filename
 static wxChar   error_buf[300];                 // Error message buffer
 static bool     loaded_ok = false;              // Poem loaded ok
 static bool     index_ok = false;               // Index loaded ok
@@ -796,7 +796,7 @@ bool LoadPoem(const wxChar *file_name, long position)
     }
 
     wxSprintf(buf, wxT("%s.dat"), file_name);
-    data_file = wxFopen(buf, wxT("r"));
+    data_file = wxFopen(buf, wxT("rb"));
 
     if (data_file == NULL)
     {
@@ -870,7 +870,7 @@ long MainWindow::DoSearch(void)
     if (data_filename)
         wxSprintf(buf, wxT("%s.dat"), data_filename);
 
-    file = wxFopen(buf, wxT("r"));
+    file = wxFopen(buf, wxT("rb"));
     if (! (data_filename && file))
     {
         wxSprintf(error_buf, wxT("Poetry data file %s not found\n"), buf);
@@ -883,7 +883,8 @@ long MainWindow::DoSearch(void)
     while ((ch != EOF) && !found)
     {
         ch = getc(file);
-        ch = wxTolower(ch);   // Make lower case
+        if (ch != EOF)
+            ch = wxTolower(ch);   // Make lower case
 
         // Only match if we're looking at a different poem
         // (no point in displaying the same poem again)
@@ -956,7 +957,7 @@ bool Compile(void)
     if (data_filename)
         wxSprintf(buf, wxT("%s.dat"), data_filename);
 
-    file = wxFopen(buf, wxT("r"));
+    file = wxFopen(buf, wxT("rb"));
     if (! (data_filename && file))
     {
         wxSprintf(error_buf, wxT("Poetry data file %s not found\n"), buf);
