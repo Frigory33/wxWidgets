@@ -24,6 +24,8 @@
     #include "wx/wx.h"
 #endif
 
+#include "wx/config.h"
+
 #include "wxpoem.h"
 
 #include "corner1.xpm"
@@ -62,9 +64,11 @@ static long     nitems = 0;                     // Number of poems
 static int      char_height = DEFAULT_CHAR_HEIGHT; // Actual height
 static int      index_ptr = -1;                 // Pointer into index
 static int      poem_height, poem_width;        // Size of poem
-static int      XPos;                           // Startup X position
-static int      YPos;                           // Startup Y position
+static wxPoint  framePos;                       // Startup position
 static int      pointSize = 12;                 // Font size
+static int      anchorHoriz = POEM_ANCHOR_HCENTRE; // Horizontal anchor of frame (for resizing)
+static int      anchorVert = POEM_ANCHOR_VCENTRE;  // Vertical anchor of frame
+static bool     borderRemoved = false;          // Frame border is removed
 
 static const wxChar *index_filename = NULL;     // Index filename
 static const wxChar *data_filename = NULL;      // Data filename
@@ -110,17 +114,18 @@ void MainWindow::CreateFonts()
 
 BEGIN_EVENT_TABLE(MainWindow, wxFrame)
     EVT_CLOSE(MainWindow::OnCloseWindow)
-    EVT_CHAR(MainWindow::OnChar)
     EVT_MENU(wxID_ANY, MainWindow::OnPopup)
 END_EVENT_TABLE()
 
-MainWindow::MainWindow(wxFrame *frame, wxWindowID id, const wxString& title,
-     const wxPoint& pos, const wxSize& size, long style):
-     wxFrame(frame, id, title, pos, size, style)
+MainWindow::MainWindow(wxWindowID id, const wxString& title, long style):
+     wxFrame(NULL, id, title, wxDefaultPosition, wxDefaultSize, style)
 {
     m_corners[0] = m_corners[1] = m_corners[2] = m_corners[3] = NULL;
 
     ReadPreferences();
+    Move(framePos - GetAnchorPos());
+    if (borderRemoved)
+        SetWindowStyle(GetWindowStyle() ^ wxCAPTION ^ wxBORDER_NONE);
     CreateFonts();
 
     SetIcon(wxpoem_xpm);
@@ -423,12 +428,16 @@ void MainWindow::Resize(void)
 {
     wxClientDC dc(canvas);
 
+    wxPoint pos = GetPosition() + GetAnchorPos();
+
     // Get the poem size
     ScanBuffer(& dc, false, &poem_width, &poem_height);
     int x = poem_width + (2*BORDER_SIZE);
     int y = poem_height + (2*BORDER_SIZE);
 
     SetClientSize(x, y);
+
+    Move(pos - GetAnchorPos());
 
     // In case client size isn't what we set it to...
     int xx, yy;
@@ -441,6 +450,22 @@ void MainWindow::Resize(void)
 
     memDC.Clear();
     ScanBuffer(&memDC, true, &xx, &yy);
+}
+
+// Get the point on which the window is anchored, relative to the window
+wxPoint MainWindow::GetAnchorPos(void)
+{
+    wxPoint pos(0, 0);
+    wxSize size = GetSize();
+    if (anchorHoriz == POEM_ANCHOR_RIGHT)
+        pos.x = size.GetWidth();
+    else if (anchorHoriz == POEM_ANCHOR_HCENTRE)
+        pos.x = size.GetWidth() / 2;
+    if (anchorVert == POEM_ANCHOR_BOTTOM)
+        pos.y = size.GetHeight();
+    else if (anchorVert == POEM_ANCHOR_VCENTRE)
+        pos.y = size.GetHeight() / 2;
+    return pos;
 }
 
 // Which is more?
@@ -471,6 +496,10 @@ void MainWindow::PreviousPage(void)
         current_page --;
         Resize();
     }
+    else if (paging)
+        PoetryNotify(wxT("Already at first page of poem."));
+    else
+        PoetryNotify(wxT("This poem has only one page."));
 }
 
 // Search for a string
@@ -480,7 +509,7 @@ void MainWindow::Search(bool ask)
 
     if (ask || m_searchString.empty())
     {
-        wxString s = wxGetTextFromUser( wxT("Enter search string"), wxT("Search"), m_searchString);
+        wxString s = wxGetTextFromUser( wxT("Enter search string:"), wxT("Search"), m_searchString);
         if (!s.empty())
         {
             s.MakeLower();
@@ -509,7 +538,7 @@ void MainWindow::Search(bool ask)
         else
         {
             last_poem_start = 0;
-            PoetryNotify(wxT("Search string not found."));
+            PoetryNotify(wxT("Search string not found till end."));
         }
     }
 }
@@ -531,11 +560,8 @@ bool MyApp::OnInit()
 //    randomize();
     pages[0] = 0;
 
-    TheMainWindow = new MainWindow(NULL,
-                                   wxID_ANY,
+    TheMainWindow = new MainWindow(wxID_ANY,
                                    wxT("wxPoem"),
-                                   wxPoint(XPos, YPos),
-                                   wxDefaultSize,
                                    wxCAPTION|wxMINIMIZE_BOX|wxSYSTEM_MENU|wxCLOSE_BOX|wxFULL_REPAINT_ON_RESIZE
                                    );
 
@@ -576,14 +602,8 @@ void MainWindow::OnCloseWindow(wxCloseEvent& WXUNUSED(event))
     this->Destroy();
 }
 
-void MainWindow::OnChar(wxKeyEvent& event)
-{
-    canvas->OnChar(event);
-}
-
 BEGIN_EVENT_TABLE(MyCanvas, wxWindow)
     EVT_MOUSE_EVENTS(MyCanvas::OnMouseEvent)
-    EVT_CHAR(MyCanvas::OnChar)
     EVT_PAINT(MyCanvas::OnPaint)
 END_EVENT_TABLE()
 
@@ -592,20 +612,53 @@ MyCanvas::MyCanvas(wxFrame *frame):
           wxWindow(frame, wxID_ANY)
 {
     m_popupMenu = new wxMenu;
-    m_popupMenu->Append(POEM_NEXT, wxT("Next poem/page"));
-    m_popupMenu->Append(POEM_PREVIOUS, wxT("Previous page"));
+    m_popupMenu->Append(POEM_NEXT, wxT("Next poem/page\tPgDn"));
+    m_popupMenu->Append(POEM_PREVIOUS, wxT("Previous page\tPgUp"));
     m_popupMenu->AppendSeparator();
-    m_popupMenu->Append(POEM_SEARCH, wxT("Search"));
-    m_popupMenu->Append(POEM_NEXT_MATCH, wxT("Next match"));
-    m_popupMenu->Append(POEM_COPY, wxT("Copy to clipboard"));
+    m_popupMenu->Append(POEM_SEARCH, wxT("Search\tS"));
+    m_popupMenu->Append(POEM_NEXT_MATCH, wxT("Next match\tN"));
+    m_popupMenu->Append(POEM_COPY, wxT("Copy to clipboard\tC"));
     m_popupMenu->Append(POEM_MINIMIZE, wxT("Minimize"));
     m_popupMenu->AppendSeparator();
-    m_popupMenu->Append(POEM_BIGGER_TEXT, wxT("Bigger text"));
-    m_popupMenu->Append(POEM_SMALLER_TEXT, wxT("Smaller text"));
+    m_popupMenu->Append(POEM_BIGGER_TEXT, wxT("Bigger text\t+"));
+    m_popupMenu->Append(POEM_SMALLER_TEXT, wxT("Smaller text\t-"));
+    {
+        wxMenu *anchorMenu = new wxMenu;
+        anchorMenu->Append(POEM_ANCHOR_LEFT, wxT("Left"), wxEmptyString, wxITEM_RADIO);
+        anchorMenu->Append(POEM_ANCHOR_HCENTRE, wxT("Centre"), wxEmptyString, wxITEM_RADIO);
+        anchorMenu->Append(POEM_ANCHOR_RIGHT, wxT("Right"), wxEmptyString, wxITEM_RADIO);
+        anchorMenu->AppendSeparator();
+        anchorMenu->Append(POEM_ANCHOR_TOP, wxT("Top"), wxEmptyString, wxITEM_RADIO);
+        anchorMenu->Append(POEM_ANCHOR_VCENTRE, wxT("Centre"), wxEmptyString, wxITEM_RADIO);
+        anchorMenu->Append(POEM_ANCHOR_BOTTOM, wxT("Bottom"), wxEmptyString, wxITEM_RADIO);
+        anchorMenu->Check(anchorVert, true);
+        anchorMenu->Check(anchorHoriz, true);
+        m_popupMenu->AppendSubMenu(anchorMenu, wxT("Anchor"));
+    }
+    m_popupMenu->Append(POEM_TOGGLE_BORDER, wxT("No border"), wxEmptyString, wxITEM_CHECK);
+    m_popupMenu->Check(POEM_TOGGLE_BORDER, borderRemoved);
     m_popupMenu->AppendSeparator();
     m_popupMenu->Append(POEM_ABOUT, wxT("About wxPoem"));
     m_popupMenu->AppendSeparator();
-    m_popupMenu->Append(POEM_EXIT, wxT("Exit"));
+    m_popupMenu->Append(POEM_EXIT, wxT("Exit\tEsc"));
+
+    wxAcceleratorEntry entries[] = {
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_SPACE, POEM_NEXT),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_RIGHT, POEM_NEXT),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_DOWN, POEM_NEXT),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_PAGEDOWN, POEM_NEXT),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_LEFT, POEM_PREVIOUS),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_UP, POEM_PREVIOUS),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_PAGEUP, POEM_PREVIOUS),
+        wxAcceleratorEntry(wxACCEL_NORMAL, 'S', POEM_SEARCH),
+        wxAcceleratorEntry(wxACCEL_NORMAL, 'N', POEM_NEXT_MATCH),
+        wxAcceleratorEntry(wxACCEL_NORMAL, 'C', POEM_COPY),
+        wxAcceleratorEntry(wxACCEL_NORMAL, '+', POEM_BIGGER_TEXT),
+        wxAcceleratorEntry(wxACCEL_NORMAL, '-', POEM_SMALLER_TEXT),
+        wxAcceleratorEntry(wxACCEL_NORMAL, WXK_ESCAPE, POEM_EXIT)
+    };
+    wxAcceleratorTable accel(WXSIZEOF(entries), entries);
+    SetAcceleratorTable(accel);
 }
 
 MyCanvas::~MyCanvas()
@@ -623,9 +676,6 @@ void MyCanvas::OnPaint(wxPaintEvent& WXUNUSED(event))
 
     if (backingBitmap)
     {
-        int xx, yy;
-        TheMainWindow->GetClientSize(&xx, &yy);
-
         dc.DrawBitmap(* backingBitmap, 0, 0);
 #if 0
         wxMemoryDC memDC;
@@ -673,37 +723,6 @@ void MyCanvas::OnMouseEvent(wxMouseEvent& event)
     }
 }
 
-// Process characters
-void MyCanvas::OnChar(wxKeyEvent& event)
-{
-    switch (event.GetKeyCode())
-    {
-        case 'n':
-        case 'N':
-            // Next match
-            TheMainWindow->Search(false);
-            break;
-
-        case 's':
-        case 'S':
-            // New search
-            TheMainWindow->Search(true);
-            break;
-
-        case WXK_SPACE:
-        case WXK_RIGHT:
-        case WXK_DOWN:
-            // Another poem
-            TheMainWindow->NextPage();
-            break;
-
-        case WXK_ESCAPE:
-            TheMainWindow->Close(true);
-        default:
-            break;
-    }
-}
-
 // Load index file
 int LoadIndex(const wxChar *file_name)
 {
@@ -740,38 +759,57 @@ int GetIndex()
     int indexn = (int)(rand() % nitems);
 
     if ((indexn < 0) || (indexn > nitems))
-    { PoetryError(wxT("No such poem!"));
-      return -1;
+    {
+        PoetryError(wxT("No such poem!"));
+        return -1;
     }
     else
-      return indexn;
+        return indexn;
+}
+
+void AnchorFromConf(int *horiz, int *vert)
+{
+    *horiz += POEM_ANCHOR_LEFT;
+    *vert += POEM_ANCHOR_TOP;
+    if (*horiz < POEM_ANCHOR_LEFT || POEM_ANCHOR_RIGHT < *horiz)
+        *horiz = POEM_ANCHOR_HCENTRE;
+    if (*vert < POEM_ANCHOR_TOP || POEM_ANCHOR_BOTTOM < *vert)
+        *vert = POEM_ANCHOR_VCENTRE;
+}
+
+void AnchorToConf(int *horiz, int *vert)
+{
+    *horiz -= POEM_ANCHOR_LEFT;
+    *vert -= POEM_ANCHOR_TOP;
 }
 
 // Read preferences
 void MainWindow::ReadPreferences()
 {
-/* TODO: convert this code to use wxConfig
-#if wxUSE_RESOURCES
-    wxGetResource(wxT("wxPoem"), wxT("FontSize"), &pointSize);
-    wxGetResource(wxT("wxPoem"), wxT("X"), &XPos);
-    wxGetResource(wxT("wxPoem"), wxT("Y"), &YPos);
-#endif
-*/
+    wxConfig config(wxT("wxPoem"));
+    config.Read(wxT("FontSize"), &pointSize);
+    config.Read(wxT("X"), &framePos.x);
+    config.Read(wxT("Y"), &framePos.y);
+    AnchorToConf(&anchorHoriz, &anchorVert);
+    config.Read(wxT("AnchorHoriz"), &anchorHoriz);
+    config.Read(wxT("AnchorVert"), &anchorVert);
+    AnchorFromConf(&anchorHoriz, &anchorVert);
+    config.Read(wxT("NoBorder"), &borderRemoved);
 }
 
 // Write preferences to disk
 void MainWindow::WritePreferences()
 {
-#ifdef __WXMSW__
-    TheMainWindow->GetPosition(&XPos, &YPos);
-/* TODO: convert this code to use wxConfig
-#if wxUSE_RESOURCES
-    wxWriteResource(wxT("wxPoem"), wxT("FontSize"), pointSize);
-    wxWriteResource(wxT("wxPoem"), wxT("X"), XPos);
-    wxWriteResource(wxT("wxPoem"), wxT("Y"), YPos);
-#endif
-*/
-#endif
+    wxConfig config(wxT("wxPoem"));
+    config.Write(wxT("FontSize"), pointSize);
+    framePos = GetPosition() + GetAnchorPos();
+    config.Write(wxT("X"), framePos.x);
+    config.Write(wxT("Y"), framePos.y);
+    int horiz = anchorHoriz, vert = anchorVert;
+    AnchorToConf(&horiz, &vert);
+    config.Write(wxT("AnchorHoriz"), horiz);
+    config.Write(wxT("AnchorVert"), vert);
+    config.Write(wxT("NoBorder"), borderRemoved);
 }
 
 // Load a poem from given file, at given point in file.
@@ -779,8 +817,6 @@ void MainWindow::WritePreferences()
 // file, otherwise use index[index_ptr] to find the correct position.
 bool LoadPoem(const wxChar *file_name, long position)
 {
-//    int j = 0;
-//    int indexn = 0;
     wxChar buf[100];
     long data;
     FILE *data_file;
@@ -1002,8 +1038,19 @@ bool Compile(void)
         wxFprintf(file, wxT("%ld\n"), poem_index[j]);
 
     fclose(file);
-    PoetryNotify(wxT("Poetry index compiled."));
+    PoetryNotify(wxT("Poetry index compiled. Use context menu to navigate."));
     return true;
+}
+
+void MainWindow::ChangeTextSize(int offset)
+{
+    if (offset > 0 || pointSize > 2)
+    {
+        pointSize += offset;
+        FindMax(&pointSize, 2);
+        CreateFonts();
+        Resize();
+    }
 }
 
 void MainWindow::OnPopup(wxCommandEvent& event)
@@ -1012,22 +1059,22 @@ void MainWindow::OnPopup(wxCommandEvent& event)
     {
         case POEM_NEXT:
             // Another poem/page
-            TheMainWindow->NextPage();
+            NextPage();
             break;
         case POEM_PREVIOUS:
             // Previous page
-            TheMainWindow->PreviousPage();
+            PreviousPage();
             break;
         case POEM_SEARCH:
             // Search - with dialog
-            TheMainWindow->Search(true);
+            Search(true);
             break;
         case POEM_NEXT_MATCH:
             // Search - without dialog (next match)
-            TheMainWindow->Search(false);
+            Search(false);
             break;
         case POEM_MINIMIZE:
-            TheMainWindow->Iconize(true);
+            Iconize(true);
             break;
 #if wxUSE_CLIPBOARD
         case POEM_COPY:
@@ -1053,25 +1100,33 @@ void MainWindow::OnPopup(wxCommandEvent& event)
             break;
 #endif
         case POEM_BIGGER_TEXT:
-            pointSize ++;
-            CreateFonts();
-            TheMainWindow->Resize();
+            ChangeTextSize(1);
             break;
         case POEM_SMALLER_TEXT:
-            if (pointSize > 2)
-            {
-                pointSize --;
-                CreateFonts();
-                TheMainWindow->Resize();
-            }
+            ChangeTextSize(-1);
+            break;
+        case POEM_ANCHOR_LEFT:
+        case POEM_ANCHOR_HCENTRE:
+        case POEM_ANCHOR_RIGHT:
+            anchorHoriz = event.GetId();
+            break;
+        case POEM_ANCHOR_TOP:
+        case POEM_ANCHOR_VCENTRE:
+        case POEM_ANCHOR_BOTTOM:
+            anchorVert = event.GetId();
+            break;
+        case POEM_TOGGLE_BORDER:
+            borderRemoved = !borderRemoved;
+            SetWindowStyle(GetWindowStyle() ^ wxCAPTION ^ wxBORDER_NONE);
+            Resize();
             break;
         case POEM_ABOUT:
             (void)wxMessageBox(wxT("wxPoem Version 1.1\nJulian Smart (c) 1995"),
-                               wxT("About wxPoem"), wxOK, TheMainWindow);
+                               wxT("About wxPoem"), wxOK, this);
             break;
         case POEM_EXIT:
             // Exit
-            TheMainWindow->Close(true);
+            Close(true);
             break;
         default:
             break;

@@ -36,7 +36,6 @@ public:
 
     void OnPaint(wxPaintEvent& event);
     void OnMouseEvent(wxMouseEvent& event);
-    void OnChar(wxKeyEvent& event);
 
 private:
     wxMenu *m_popupMenu;
@@ -49,12 +48,10 @@ class MainWindow: public wxFrame
 {
 public:
     MyCanvas *canvas;
-    MainWindow(wxFrame *frame, wxWindowID id, const wxString& title,
-               const wxPoint& pos, const wxSize& size, long style);
+    MainWindow(wxWindowID id, const wxString& title, long style);
     virtual ~MainWindow();
 
     void OnCloseWindow(wxCloseEvent& event);
-    void OnChar(wxKeyEvent& event);
     void OnPopup(wxCommandEvent& event);
 
     // Display next page or poem
@@ -69,12 +66,16 @@ public:
     // Look in file for string
     long DoSearch(void);
 
+    // Change text size
+    void ChangeTextSize(int offset);
+
     // Do the actual drawing of text (or just calculate size needed)
     void ScanBuffer(wxDC *dc, bool DrawIt, int *max_x, int *max_y);
 
     // Load the poem
     void GetIndexLoadPoem(void);
     void Resize(void);
+    wxPoint GetAnchorPos(void);
 
 private:
 
@@ -109,7 +110,14 @@ enum
     POEM_BIGGER_TEXT   = wxID_ZOOM_IN,
     POEM_SMALLER_TEXT  = wxID_ZOOM_OUT,
     POEM_SEARCH        = wxID_FIND,
-    POEM_MINIMIZE      = wxID_ICONIZE_FRAME
+    POEM_MINIMIZE      = wxID_ICONIZE_FRAME,
+    POEM_ANCHOR_LEFT   = wxID_HIGHEST + 1,
+    POEM_ANCHOR_HCENTRE,
+    POEM_ANCHOR_RIGHT,
+    POEM_ANCHOR_TOP,
+    POEM_ANCHOR_VCENTRE,
+    POEM_ANCHOR_BOTTOM,
+    POEM_TOGGLE_BORDER
 };
 
 #endif      // _WXPOEM_H_

@@ -30,9 +30,9 @@ Files
 
 The main data file is winpoem.dat, and an index file winpoem.idx is
 supplied or can be (re)built by deleting winpoem.idx and rerunning
-wxPoem. Source code is also provided in source.zip, but wxWindows is
-required to build it. The original WinPoem is much leaner (40K
-instead of 400K!) and can be compiled under Windows without wxWindows.
+wxPoem. wxWindows is required to build it. The original WinPoem is much
+leaner (40K instead of 400K!) and can be compiled under Windows without
+wxWindows.
 
 Installation
 ------------
@@ -40,19 +40,8 @@ Installation
   Windows
   =======
 
-    Copy ctl3dv2.dll to windows\system, and delete the original
-    ctl3dv2.dll or wxPoem will not run.
-
     wxPoem can be put in the Startup folder in the Program Manager, so that
     a random poem will pop up every time Windows is run.
-
-  UNIX
-  ====
-
-    wxPoem comes in Open Look and Motif versions for the Sun, and a
-    Linux Open Look version. For other platforms, you will need to
-    recompile the source.
-
 
 Use
 ---
@@ -66,24 +55,27 @@ for new poems (or pages for multi-page poems).
 
 Clicking the right mouse button (or selecting the wxPoem Options menu
 item from the system menu) gives a choice of the following facilities:
-Next poem/page   (Page down)   Display next poem (or next page)
-Previous page    (Page up)     Display previous page (multi-line poems only)
-Search           (S)           Allows user to enter a search string
-Next match       (N)           Gives next search match
-Copy to clipboard              Allows poems to be pasted into other applications
-Bigger text                    Increases text size
-Smaller text                   Decreases text size
-About wxPoem                   About wxPoem
-Exit             (Esc)         Quit wxPoem
+Next poem/page    (Page down)   Display next poem (or next page)
+Previous page     (Page up)     Display previous page (multi-page poems only)
+Search            (S)           Allows user to enter a search string
+Next match        (N)           Gives next search match
+Copy to clipboard (C)           Allows poems to be pasted into other applications
+Bigger text       (+)           Increases text size
+Smaller text      (-)           Decreases text size
+Anchor                          Changes the point on which the window is anchored
+No border                       Removes the window border (if supported)
+About wxPoem                    About wxPoem
+Exit              (Esc)         Quit wxPoem
 
-When wxPoem is closed, the font, text height and window position are
-remembered (stored in WIN.INI) for next time. Under X, the values
-are not written (since they are stored in .Xdefaults), so you may
-want to edit the following resources by hand:
+When wxPoem is closed, the text height, window position, anchor and style are
+remembered for next time:
 
-wxPoem.X         ; X position
-wxPoem.Y         ; Y position
-wxPoem.FontSize  ; Font size in points (default 12)
+wxPoem/FontSize     ; Font size in points (default 12)
+wxPoem/X            ; X position
+wxPoem/Y            ; Y position
+wxPoem/AnchorHoriz  ; Anchor horizontal position
+wxPoem/AnchorVert   ; Anchor vertical position
+wxPoem/NoBorder     ; Is border removed
 
 The data file
 -------------
