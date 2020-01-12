@@ -217,8 +217,8 @@ LifeFrame::LifeFrame() :
     menuView->Append(wxID_ZOOM_OUT, wxEmptyString, _("Zoom out"));
     menuView->Append(ID_INFO, _("&Description\tCtrl-D"), _("View pattern description"));
 
-    menuGame->Append(ID_START, _("&Start\tCtrl-S"), _("Start"));
-    menuGame->Append(ID_STEP, _("&Next\tCtrl-N"), _("Single step"));
+    menuGame->Append(ID_START, _("&Start\tS"), _("Start"));
+    menuGame->Append(ID_STEP, _("&Next\tN"), _("Single step"));
     menuGame->Append(wxID_STOP, wxEmptyString, _("Stop"));
     menuGame->Enable(wxID_STOP, false);
     menuGame->AppendSeparator();
